@@ -1,0 +1,7 @@
+streamlit
+langchain-ollama
+python-dotenv
+yfinance
+lxml
+google-genai
+langchain-google-genai
