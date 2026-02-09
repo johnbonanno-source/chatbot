@@ -28,3 +28,4 @@ Thumbs.db
 
 # continue config
 .continue/agents/*.yaml
+AGENTS.md

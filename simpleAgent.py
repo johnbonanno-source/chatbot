@@ -1,6 +1,6 @@
 import streamlit as st 
-from helper import getMethodsFromticker, get_ticker_and_action_from_query, get_specialized_methods_from_llm, yahoo_finance, display_stock_chart, generate_final_response, summarizeHistory
-
+from helper import get_ticker_and_action_from_query, get_specialized_methods_from_llm, yahoo_finance, display_stock_chart, generate_final_response, summarizeHistory
+from prompts import methods
 
 def main():
     st.title("Chatbot")
@@ -23,8 +23,7 @@ def main():
             ticker, action = get_ticker_and_action_from_query(user_text)
             yfi_output = None
             if ticker and ticker != "NONE":
-                possibleActions = getMethodsFromticker(ticker)
-                yfi_methods = get_specialized_methods_from_llm(action, possibleActions)
+                yfi_methods = get_specialized_methods_from_llm(action, methods)
                 yfi_output = yahoo_finance(ticker, yfi_methods)
                 # plot the chart
                 display_stock_chart(ticker, yfi_output)

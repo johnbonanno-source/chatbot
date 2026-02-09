@@ -3,12 +3,10 @@ import os
 import re
 import json
 import inspect
-import pandas as pd
 from functools import lru_cache
-from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from prompts import SYSTEM_PROMPT, EXTRACT_ACTION_AND_TICKER_PROMPT, EXTRACT_RELEVANT_METHOD_PROMPT
+from prompts import methods, SYSTEM_PROMPT, EXTRACT_ACTION_AND_TICKER_PROMPT, EXTRACT_RELEVANT_METHOD_PROMPT
 
 @lru_cache(maxsize=1)
 def get_llm() -> ChatGoogleGenerativeAI:
@@ -29,38 +27,30 @@ def getMethodsFromticker(ticker: str) -> list:
             methods.append(name)
     return sorted(m for m in methods)
 
-def get_ticker_and_action_from_query(user_text:str)->list:
+def get_ticker_and_action_from_query(user_text: str) -> tuple:
     """Extract a stock ticker and a action the user would like performed, based on their input query"""
     llm = get_llm()
-    prompt = [
-        ("system", EXTRACT_ACTION_AND_TICKER_PROMPT),
-        ("user", user_text),
-    ]
-
+    prompt = [("system", EXTRACT_ACTION_AND_TICKER_PROMPT), ("user", user_text)]
     resp = llm.invoke(prompt)
-    content = json.loads(resp.text.strip())  # Get the text content
-    ticker = content.get("ticker")
-    action = content.get("action")
-    return (ticker, action)
+    try:
+        content = json.loads(resp.text.strip())
+    except json.JSONDecodeError:
+        return (None, user_text)
+    if not isinstance(content, dict):
+        return (None, user_text)
+    return (content.get("ticker"), content.get("action"))
 
-    
 
 def get_specialized_methods_from_llm(action: str, all_methods:list)->list:
     """Of all methods callable on a specific stock ticker, return which of these methods relate to the action requested by the user, in a list format"""
     llm = get_llm()
+    prompt = [("system", EXTRACT_RELEVANT_METHOD_PROMPT), ("user", f"Action: {action}\nAllowed methods: {', '.join(all_methods)}")]    
     
-    prompt = [
-        ("system", EXTRACT_RELEVANT_METHOD_PROMPT),
-        ("user", f"Action: {action}\nAllowed methods: {', '.join(all_methods)}"),
-    ]
     
     resp = llm.invoke(prompt)
     content = json.loads(resp.text)
-    
-    if not content:
-        return []
-    else:
-        return content
+    print("all ", all_methods, "selected ", content,action)
+    return content if content else []
 
 def yahoo_finance(ticker_symbol:str, method_list:list) -> dict:
     """For each method in method list, call the method and store in a dictionary defined as methodName:methodOutput"""
@@ -71,10 +61,16 @@ def yahoo_finance(ticker_symbol:str, method_list:list) -> dict:
             try:
                 if method_name.startswith("history"):
                     output["history"] = eval(f"ticker.{method_name}")
+                    continue
+                if method_name not in methods:
+                    output[method_name] = "Skipped: Disallowed Method"
+                    continue
+                method = getattr(ticker, method_name, None)
+                if method is not None and callable(method):
+                    output[method_name] = method()
                 else:
-                    method = getattr(ticker, method_name, None)
-                    if callable(method):
-                        output[method_name] = method()
+                    output[method_name] = "Skipped: Not callable"
+                
             except Exception as e:
                     output[method_name] = f"Error: {e}"
     return output

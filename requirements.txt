@@ -5,3 +5,6 @@ yfinance
 lxml
 google-genai
 langchain-google-genai
+langchain
+langchain-community
+pypdf
