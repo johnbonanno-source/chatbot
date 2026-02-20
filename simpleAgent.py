@@ -1,6 +1,5 @@
 import streamlit as st 
-from helper import get_ticker_and_action_from_query, get_specialized_methods_from_llm, yahoo_finance, display_stock_chart, generate_final_response, summarizeHistory
-from prompts import methods
+from helper import get_ticker_and_action_from_query, yahoo_finance, display_stock_chart, generate_final_response, summarizeHistory
 
 def main():
     st.title("Stock Market Agent")
@@ -20,13 +19,17 @@ def main():
 
     with st.chat_message("assistant"):
         with st.spinner("Thinking…"):
-            ticker, action = get_ticker_and_action_from_query(user_text)
-            print(ticker,action)
+            request_plan = get_ticker_and_action_from_query(user_text)
+            print(f"[DEBUG] request_plan={request_plan}")
+            ticker = request_plan.get("ticker")
+            yfi_methods = request_plan.get("methods", [])
+            history_cfg = request_plan.get("history", {})
             yfi_output = None
             if ticker and ticker is not None:
-                yfi_methods = get_specialized_methods_from_llm(action, methods)
+                if not yfi_methods:
+                    yfi_methods = ["history"]
                 print(yfi_methods)
-                yfi_output = yahoo_finance(ticker, yfi_methods)
+                yfi_output = yahoo_finance(ticker, yfi_methods, history_cfg)
                 # plot the chart
                 display_stock_chart(ticker, yfi_output)
             resp = generate_final_response(st.session_state.history, yfi_output)

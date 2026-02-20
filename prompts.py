@@ -10,15 +10,35 @@ SYSTEM_PROMPT = """
     """
 
 EXTRACT_ACTION_AND_TICKER_PROMPT = """
-        You are a query parser for stock market requests.
-        Analyze the user's query and extract stock information.
-        Return ONLY a JSON object with this structure:
-        {"ticker": "<symbol or null>", "action": "<description>"}
-        Rules:
-            - If a company name is mentioned (e.g., "Apple", "Tesla"), resolve it to the ticker symbol (e.g., AAPL, TSLA)
-            - If no stock is mentioned, set TICKER to null. Do not return string values like 'NONE' or 'None' for missing ticker.
-            - For ACTION, describe what data is needed (e.g., "current price", "historical data", "company info")
+    You are a stock-query planner.
+    Return ONLY valid JSON (no markdown, no prose) with this exact shape:
+    {
+    "ticker": "<symbol or null>",
+    "action": "<short description>",
+    "methods": ["<method1>", "<method2>"],
+    "history": {"period": "<period>"}
+    }
+
+    Rules:
+    - Resolve company names to tickers (Apple -> AAPL, Micron -> MU, etc).
+    - If no stock is mentioned, set "ticker" to null.
+    - Keep "methods" from the allowed method names only.
+    - Include "history" in methods when the user asks about price movement/performance/trend.
+    - Always include history.period when history is used.
+    - Do NOT include interval in output. Interval is fixed in app code.
+
+    Period mapping:
+    - "today", "intraday", "right now" -> "1d"
+    - "this week", "weekly" -> "5d"
+    - "this month", "monthly" -> "1mo"
+    - "this year", "YTD" -> "1y"
+    - explicit user horizon (e.g. 6mo, 2y) -> use that exact period
+    - if unclear and history is used -> default "5d"
+
+    Good example:
+    {"ticker":"MU","action":"stock performance","methods":["history","get_fast_info"],"history":{"period":"1d"}}
     """
+
 
 EXTRACT_RELEVANT_METHOD_PROMPT = """
     You are a financial‑data expert.  From the list of Yahoo‑Finance ticker
